@@ -5,10 +5,10 @@ on:
   # 06:00 UTC on Monday
     - cron:  '0 6 * * 1'
 jobs:
-  update_current:
+  update_rolling:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           repository: ${{ github.repository }}
 
@@ -31,18 +31,18 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PR_ACTION_DOCUMENTATION_SUBMODULE_UPDATE }}
-          commit-message: "Github: update current branch"
-          title: "Github: update current branch"
+          commit-message: "GitHub: update rolling branch"
+          title: "GitHub: update rolling branch"
           body: |
             Autoupdate vyos-1x submodule
             update releasenotes
-          branch: update-dependencies-current
+          branch: update-dependencies-rolling
           delete-branch: true
 
   update_sagitta:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           repository: ${{ github.repository }}
           ref: sagitta
@@ -65,8 +65,8 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PR_ACTION_DOCUMENTATION_SUBMODULE_UPDATE }}
-          commit-message: "Github: update sagitta branch"
-          title: "Github: update sagitta branch"
+          commit-message: "GitHub: update sagitta branch"
+          title: "GitHub: update sagitta branch"
           body: |
             Autoupdate vyos-1x submodule
             update releasenotes
@@ -77,7 +77,7 @@ jobs:
   update_equuleus:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v6
         with:
           repository: ${{ github.repository }}
           ref: equuleus
@@ -100,8 +100,8 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PR_ACTION_DOCUMENTATION_SUBMODULE_UPDATE }}
-          commit-message: "Github: update equuleus branch"
-          title: "Github: update equuleus branch"
+          commit-message: "GitHub: update equuleus branch"
+          title: "GitHub: update equuleus branch"
           body: |
             Autoupdate vyos-1x submodule
             update releasenotes

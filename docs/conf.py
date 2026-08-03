@@ -13,6 +13,8 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+import pathlib
+import shutil
 import sys
 sys.path.append(os.path.abspath("./_ext"))
 
@@ -22,14 +24,21 @@ from docutils.parsers.rst.roles import set_classes
 # -- Project information -----------------------------------------------------
 
 project = u'VyOS'
-copyright = u'2024, VyOS maintainers and contributors'
+copyright = u'2026, VyOS maintainers and contributors'
 author = u'VyOS maintainers and contributors'
 
-# The short X.Y version
-version = u'1.5'
+# The short X.Y version (rolling — next major; bumped at branch cut)
+version = u'rolling'
 
-# The full version, including alpha/beta/rc tags
-release = u'1.5.x (circinus)'
+# The full version, including alpha/beta/rc tags. The `rolling` branch
+# is the rolling tip and serves at /en/rolling/ on RTD; the literal
+# below is exposed in the page footer ("v: rolling (current)") and is
+# interpolated into _templates/llms.txt.j2 ("This documentation covers
+# {{ release }}."). Pin this to a value that names what the rolling
+# docs actually serve, not a stale LTS codename. The "(current)" suffix
+# is release-channel terminology for the current rolling release; it is
+# unrelated to the former branch name.
+release = u'rolling (current)'
 
 # -- General configuration ---------------------------------------------------
 
@@ -44,12 +53,40 @@ extensions = ['sphinx.ext.intersphinx',
               'sphinx.ext.todo',
               'sphinx.ext.ifconfig',
               'sphinx.ext.graphviz',
+              # LaTeX-only: converts image formats the LaTeX/PDF builder can't
+              # embed natively (webp, svg, ...) to PNG at build time. The
+              # LaTeX builder's supported_image_types is ['application/pdf',
+              # 'image/png', 'image/jpeg'] — without this, unsupported
+              # images (nearly all of ours are .webp) are silently dropped
+              # from the PDF output. No effect on the HTML builder, which
+              # supports webp/svg natively in the browser; imgconverter
+              # only fires post-transforms when the active builder's
+              # supported_image_types doesn't already cover the source
+              # format. See `image_converter` below + docker/im-convert.sh
+              # for the conversion command this depends on.
+              'sphinx.ext.imgconverter',
               'notfound.extension',
               'autosectionlabel',
               'myst_parser',
               'sphinx_design',
-              'vyos'
+              'vyos',
+              'sphinx_llms_txt',
+              'sphinx_sitemap',
 ]
+
+# sphinx.ext.imgconverter: use a thin wrapper (docker/im-convert.sh, installed
+# on PATH as `im-convert`) instead of ImageMagick's `convert` directly.
+# Debian's `imagemagick` package is built --without-rsvg, so its built-in SVG
+# coder (a minimal libxml2-based renderer, not a librsvg wrapper) can't
+# rasterize SVGs that embed a base64 raster <image> element — common in
+# diagrams exported from draw.io/diagrams.net — and fails with "unable to
+# open image `image/png;base64,...'". The wrapper routes .svg sources to
+# `rsvg-convert` (from librsvg2-bin) directly and everything else (webp,
+# gif, pdf, ...) through ImageMagick's `convert` as usual. If `im-convert`
+# isn't on PATH (e.g. a build environment other than docker/Dockerfile),
+# imgconverter's own `is_available()` check logs a warning and skips
+# conversion rather than failing the build.
+image_converter = 'im-convert'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -59,10 +96,10 @@ autosectionlabel_prefix_document = True
 
 
 # The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
-#
-# source_suffix = ['.rst', '.md']
-source_suffix = ['.rst', '.md']
+source_suffix = ['.md']
+
+myst_enable_extensions = ["colon_fence", "deflist", "fieldlist", "substitution"]
+myst_fence_as_directive = ["cfgcmd", "opcmd", "cmdincludemd"]
 
 # The master toctree document.
 master_doc = 'index'
@@ -83,7 +120,11 @@ gettext_uuid = False
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = [u'_build', 'Thumbs.db', '.DS_Store', '_include/vyos-1x']
+exclude_patterns = [
+    u'_build', 'Thumbs.db', '.DS_Store', '_include/vyos-1x',
+    '_rst_legacy',
+    'superpowers',
+]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
@@ -111,6 +152,66 @@ html_static_path = ['_static']
 
 html_extra_path = ['_html_extra']
 
+# Version picker + status banner + language scaffold (docs/_static/js/version-picker.js,
+# docs/_static/css/version-picker.css). Appended rather than assigned in case a later
+# addition to this file defines these lists first. Registered unconditionally: it degrades
+# silently on ReadTheDocs (fetch of /versions.json fails there, so nothing renders).
+# globals().get(...) (not a bare `html_js_files` reference guarded by `'html_js_files' in
+# dir()`) avoids a static-analysis F821 (possibly-undefined name) while keeping the same
+# runtime behavior: append to an existing list if one was already defined, else start fresh.
+html_js_files = [*globals().get('html_js_files', []), 'js/version-picker.js']
+html_css_files = [*globals().get('html_css_files', []), 'css/version-picker.css']
+
+# CF-Workers builds inject DOCS_VERSION_SLUG (docs-build.yml); ReadTheDocs builds
+# (until sunset) run plain Sphinx with no Pagefind step, so the Pagefind wrapper
+# script + the searchbox.html override (docs/_templates/searchbox.html) must only
+# activate for CF builds — otherwise RTD visitors hit a 404ing search mount.
+_vyos_cf_build = bool(os.environ.get('DOCS_VERSION_SLUG'))
+if _vyos_cf_build:
+    html_js_files = [*html_js_files, 'js/pagefind-wrapper.js']
+
+# Version slug: CF-Workers builds inject DOCS_VERSION_SLUG (docs-build.yml);
+# ReadTheDocs builds (until sunset) fall back to the RTD env vars; local builds
+# default to 'rolling'.
+_docs_slug = os.environ.get('DOCS_VERSION_SLUG')
+if not _docs_slug and os.environ.get('READTHEDOCS_VERSION'):
+    _docs_slug = os.environ['READTHEDOCS_VERSION']
+    if _docs_slug == 'latest':
+        _docs_slug = 'rolling'
+if not _docs_slug:
+    _docs_slug = 'rolling'
+
+html_baseurl = f'https://docs.vyos.io/en/{_docs_slug}/'
+
+_rtd_version_type = os.environ.get('READTHEDOCS_VERSION_TYPE', '')
+_github_version = (
+    os.environ.get('READTHEDOCS_GIT_COMMIT_HASH', 'rolling')
+    if _rtd_version_type == 'external'
+    else os.environ.get(
+        'DOCS_VERSION_BRANCH', os.environ.get('READTHEDOCS_GIT_IDENTIFIER', 'rolling')
+    )
+)
+
+html_context = {
+    'display_github': True,
+    'github_user': 'vyos',
+    'github_repo': 'vyos-documentation',
+    'github_version': _github_version,
+    'conf_py_path': '/docs/',
+    'gtm_id': os.environ.get('GTM_ID', ''),
+    'cookiebot_id': os.environ.get('COOKIEBOT_ID', ''),
+    'vyos_cf_build': _vyos_cf_build,
+}
+
+# sphinx-sitemap: baseurl already includes /en/rolling/, so skip lang+version
+sitemap_url_scheme = '{link}'
+
+# sphinx-llms-txt: disable the package's auto-generated index llms.txt.
+# The curated llms.txt is rendered at build time from
+# _templates/llms.txt.j2 by the _write_llms_txt() build-finished hook
+# below; llms-full.txt is still auto-generated by sphinx-llms-txt.
+llms_txt_file = False
+
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
 #
@@ -123,12 +224,17 @@ html_extra_path = ['_html_extra']
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = '_static/images/vyos-logo.png'
+html_logo = '_static/images/vyos-logo.webp'
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs. This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
 html_favicon = '_static/images/vyos-logo-icon.png'
+
+# The "title" for HTML documentation generated with Sphinx's own templates.
+# This is appended to the `<title>` tag of individual pages, and used
+# in the navigation bar as the "topmost" element.
+html_title = f'{project} rolling release (current)'
 
 # -- Options for HTMLHelp output ---------------------------------------------
 
@@ -193,5 +299,75 @@ texinfo_documents = [
 ]
 
 
+def _prefer_webp(app):
+    """Prepend WebP to supported image types for HTML builders."""
+    if app.builder.name in ('html', 'dirhtml', 'readthedocs'):
+        types = app.builder.supported_image_types
+        if 'image/webp' not in types:
+            app.builder.supported_image_types = ['image/webp'] + types
+
+
+def _write_llms_txt(app, exception):
+    # Skip dirhtml: production publishes via the `html` / `readthedocs`
+    # builders only. The `.md` links in the curated template do
+    # actually resolve under `dirhtml` (`_copy_md_sources` puts `.md`
+    # files at their source-relative paths regardless of builder), but
+    # we still don't render llms.txt for builds we don't ship — local
+    # `make dirhtml` is a developer convenience, not a publish target.
+    if exception is not None or app.builder.name not in (
+            'html', 'readthedocs'):
+        return
+    if not app.config.html_baseurl:
+        # Fail loudly rather than rendering /quick-start.md etc. as a
+        # silently-broken root-relative URL — every supported branch
+        # sets html_baseurl, so a missing value is a regression.
+        raise RuntimeError(
+            'html_baseurl must be set to render llms.txt')
+    from pathlib import Path
+    from jinja2 import Environment, FileSystemLoader, StrictUndefined
+    tpl_dir = Path(app.srcdir) / '_templates'
+    out_path = Path(app.outdir) / 'llms.txt'
+    baseurl = app.config.html_baseurl.rstrip('/') + '/'
+    # FileSystemLoader + get_template (rather than from_string) makes
+    # Jinja tracebacks reference the real template filename and line
+    # number — useful when StrictUndefined trips on a typo in
+    # llms.txt.j2. StrictUndefined: missing template variables raise
+    # rather than silently render as empty strings, so a typo in
+    # llms.txt.j2 fails the build instead of shipping a half-blank
+    # llms.txt.
+    env = Environment(
+        loader=FileSystemLoader(str(tpl_dir)),
+        undefined=StrictUndefined,
+        keep_trailing_newline=True,
+        # Plain-text template (not HTML), so HTML autoescape is not
+        # appropriate. Setting autoescape=False explicitly to silence
+        # bandit/ruff S701 and document the intent.
+        autoescape=False,
+    )
+    template = env.get_template('llms.txt.j2')
+    rendered = template.render(
+        baseurl=baseurl,
+        release=app.config.release,
+    )
+    out_path.write_text(rendered, encoding='utf-8')
+
+
+def _copy_md_sources(app, exception):
+    """Copy .md source files verbatim into the HTML output tree."""
+    if exception is not None:
+        return
+    src = pathlib.Path(app.srcdir)
+    out = pathlib.Path(app.outdir)
+    for path in src.rglob("*.md"):
+        # Skip files in excluded directories to prevent recursive nesting
+        if any(part in {'_build', '_rst_legacy'} for part in path.parts):
+            continue
+        dest = out / path.relative_to(src)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, dest)
+
+
 def setup(app):
-    pass
+    app.connect('builder-inited', _prefer_webp)
+    app.connect('build-finished', _copy_md_sources)
+    app.connect('build-finished', _write_llms_txt)

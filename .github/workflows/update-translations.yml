@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Set Up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: 3.11.x
 
@@ -53,10 +53,10 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PR_ACTION_DOCUMENTATION_SUBMODULE_UPDATE }}
-          commit-message: "Github: update translations"
-          title: "Github: update translations"
+          commit-message: "GitHub: update translations"
+          title: "GitHub: update translations"
           body: |
             Generate, upload new and download translation files 
-          branch: update-translations-current
+          branch: update-translations-rolling
           delete-branch: true
     
