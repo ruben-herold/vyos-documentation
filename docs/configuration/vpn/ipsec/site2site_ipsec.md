@@ -491,6 +491,34 @@ Local prefix for interesting traffic.
 Remote prefix for interesting traffic.
 ```
 
+```{cfgcmd} set vpn ipsec site-to-site peer \<name\> vti traffic-selector split-by-family
+
+Negotiate IPv4 and IPv6 traffic selectors in separate child SAs.
+```
+
+By default all prefixes of both address families go into a single
+CHILD_SA named `<name>-vti`. A responder may narrow the traffic
+selectors of a CHILD_SA to one address family. Some firewalls do this
+in dual-stack mode. The tunnel then carries IPv4 only and IPv6 traffic
+fails, although both families are configured.
+
+With `split-by-family` the peer gets one child SA per address family:
+`<name>-vti` for IPv4 and `<name>-vti6` for IPv6. Both use the same VTI
+interface and ESP group. An address family needs a prefix on both the
+local and the remote side, otherwise the commit is rejected. A family
+without any prefix gets no child SA.
+
+```none
+set vpn ipsec site-to-site peer PEER1 vti bind 'vti0'
+set vpn ipsec site-to-site peer PEER1 vti traffic-selector local prefix '0.0.0.0/0'
+set vpn ipsec site-to-site peer PEER1 vti traffic-selector local prefix '::/0'
+set vpn ipsec site-to-site peer PEER1 vti traffic-selector remote prefix '0.0.0.0/0'
+set vpn ipsec site-to-site peer PEER1 vti traffic-selector remote prefix '::/0'
+set vpn ipsec site-to-site peer PEER1 vti traffic-selector split-by-family
+```
+
+`show vpn ipsec sa` then lists both child SAs.
+
 ### IPsec Op-mode Commands
 
 ```{opcmd} show vpn ike sa
