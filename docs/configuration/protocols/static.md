@@ -202,6 +202,13 @@ IPv4 reject routes explicitly drop traffic destined for a single IPv4 host or
 subnet and return an ICMP unreachable message to the sending device. Use the
 following commands to configure IPv4 reject routes.
 
+```{note}
+A reject route and a next-hop, interface or DHCP interface route for the same
+subnet must not have the same distance. The commit fails if both are enabled.
+Use a different distance or disable one of them. When a configuration with such
+a combination is upgraded, the reject route is disabled.
+```
+
 ```{cfgcmd} set protocols static route \<subnet\> reject
 
 **Configure a reject route for the specified subnet.**
@@ -214,6 +221,21 @@ Example:
 
 ```none
 set protocols static route 192.0.2.0/24 reject
+```
+
+```{cfgcmd} set protocols static route \<subnet\> reject disable
+
+**Disable the reject route.**
+
+The system does not install the route. The configured subnet, distance and tag
+are preserved. A disabled route does not conflict with a next-hop, interface or
+DHCP interface route for the same subnet and distance.
+```
+
+Example:
+
+```none
+set protocols static route 192.0.2.0/24 reject disable
 ```
 
 ```{cfgcmd} set protocols static route \<subnet\> reject distance \<distance\>
@@ -252,6 +274,13 @@ Unlike a reject route, which notifies the sender with an ICMP destination
 unreachable message, a blackhole route drops the packets without generating
 any response.
 
+```{note}
+A blackhole route and a next-hop, interface or DHCP interface route for the same
+subnet must not have the same distance. The commit fails if both are enabled.
+Use a different distance or disable one of them. When a configuration with such
+a combination is upgraded, the blackhole route is disabled.
+```
+
 ```{cfgcmd} set protocols static route \<subnet\> blackhole
 
 **Configure a blackhole route for the specified subnet.**
@@ -264,6 +293,21 @@ Example:
 
 ```none
 set protocols static route 10.0.0.0/8 blackhole
+```
+
+```{cfgcmd} set protocols static route \<subnet\> blackhole disable
+
+**Disable the blackhole route.**
+
+The system does not install the route. The configured subnet, distance and tag
+are preserved. A disabled route does not conflict with a next-hop, interface or
+DHCP interface route for the same subnet and distance.
+```
+
+Example:
+
+```none
+set protocols static route 10.0.0.0/8 blackhole disable
 ```
 
 ```{cfgcmd} set protocols static route \<subnet\> blackhole distance \<distance\>
@@ -498,6 +542,13 @@ IPv6 reject routes explicitly drop traffic destined for a single IPv6 host or
 subnet and return an ICMPv6 unreachable message to the sending device. Use the
 following commands to configure IPv6 reject routes.
 
+```{note}
+A reject route and a next-hop, interface or DHCP interface route for the same
+subnet must not have the same distance. The commit fails if both are enabled.
+Use a different distance or disable one of them. When a configuration with such
+a combination is upgraded, the reject route is disabled.
+```
+
 ```{cfgcmd} set protocols static route6 \<subnet\> reject
 
 **Configure a reject route for the specified subnet.**
@@ -510,6 +561,21 @@ Example:
 
 ```none
 set protocols static route6 2001:db8:1::/64 reject
+```
+
+```{cfgcmd} set protocols static route6 \<subnet\> reject disable
+
+**Disable the reject route.**
+
+The system does not install the route. The configured subnet, distance and tag
+are preserved. A disabled route does not conflict with a next-hop, interface or
+DHCP interface route for the same subnet and distance.
+```
+
+Example:
+
+```none
+set protocols static route6 2001:db8:1::/64 reject disable
 ```
 
 ```{cfgcmd} set protocols static route6 \<subnet\> reject distance \<distance\>
@@ -548,6 +614,13 @@ Unlike a reject route, which notifies the sender with an ICMPv6 destination
 unreachable message, a blackhole route drops the packets without generating
 any response.
 
+```{note}
+A blackhole route and a next-hop, interface or DHCP interface route for the same
+subnet must not have the same distance. The commit fails if both are enabled.
+Use a different distance or disable one of them. When a configuration with such
+a combination is upgraded, the blackhole route is disabled.
+```
+
 ```{cfgcmd} set protocols static route6 \<subnet\> blackhole
 
 **Configure a blackhole route for the specified subnet.**
@@ -560,6 +633,21 @@ Example:
 
 ```none
 set protocols static route6 2001:db8:1::/64 blackhole
+```
+
+```{cfgcmd} set protocols static route6 \<subnet\> blackhole disable
+
+**Disable the blackhole route.**
+
+The system does not install the route. The configured subnet, distance and tag
+are preserved. A disabled route does not conflict with a next-hop, interface or
+DHCP interface route for the same subnet and distance.
+```
+
+Example:
+
+```none
+set protocols static route6 2001:db8:1::/64 blackhole disable
 ```
 
 ```{cfgcmd} set protocols static route6 \<subnet\> blackhole distance \<distance\>
